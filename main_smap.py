@@ -7,27 +7,27 @@ import pandas as pd
 import matplotlib.pyplot as plt
 #from smapm import smapm
 from datetime import datetime
-from f_pr_pet import main_pr, main_pet
-from netCDF4 import Dataset
+#from f_pr_pet import main_pr, main_pet
+#from netCDF4 import Dataset
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from hidropy.utils.hidropy_utils import create_path, read_thiessen_obs, lsname
-from hidropy.utils.write_flow import write_flow
-from hidropy.utils.smapm import smapm
-from hidropy.utils.basins_smap_parameters_monthly import smap_param_mon
+#from hidropy.utils.hidropy_utils import create_path, read_thiessen_obs, lsname
+#from hidropy.utils.write_flow import write_flow
+from pfct.hidro.smapd import smapd
+from basins_smap_parameters_daily import smap_param_day
 from calendar import monthrange
+from glob import glob
+import os
 
-
-
-f = smapm(parms, pr, pet)
+#f = smapd(parms, pr, pet)
 
 
 def arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--date", type=str, help="Date in formar YYYYMMDD")
+    parser.add_argument("--exp", type=str, help="fcst or hind")
     return parser.parse_args()
 
-
+'''
 # Parametros
 smap_param_mon = {
 '194-castanhao': [  931.  ,  3.979,  0.,  0.,  30.,  0.,  14926.  ], # Parametros calculados por Robson - Dados de vazao para calculo da vazao disponibilizados no Portal Hidro
@@ -36,18 +36,142 @@ smap_param_mon = {
 '2-banabuiu'   : [  961.  ,  2.95 ,  0.,  0.,  30.,  0.,  14249.  ],
 '0-prg'        : [ 1999.98,  3.78 ,  0.,  0.,  30.,  0.,   4742.01]
  }
+'''
+            
+def read_obs(date_fcst,):
+   date_start_obs = datetime.strptime(date_fcst, '%Y%m%d') - relativedelta(months=48)  
+   date_end_obs = datetime.strptime(date_fcst, '%Y%m%d') - relativedelta(days=1) 
+   
+   a, b,c , d =  np.loadtxt('data/obs/pr_daily_funceme_obs_19730101_20200731_thiessen_reservatorio-9-oros-CE.asc', unpack=True)
+   pr = d
+   a, b,c , d =  np.loadtxt('data/obs/pet_daily_inmet_obs_19730101_20200731_thiessen_reservatorio-9-oros-CE.asc', unpack=True)
 
-#~ dict_datas = {
-#~ '194-castanhao': "200201_201512",
-#~ '88-pacoti'    : "200201_201707",
-#~ '9-oros'       : "198601_201512",
-#~ '2-banabuiu'   : "198601_201512",
-#~ '0-prg'        : "200201_201707"
-#~ }
+   pet = d
+   date1 = datetime(1973,1,1)
+   date2 = datetime(2020,7,31)
+   date = pd.date_range(date1.strftime('%Y%m%d'),date2.strftime('%Y%m%d'))
+   date = date.to_pydatetime()
+   dfpr=pd.DataFrame(data=pr, index=date)
+   
+   dfpet=pd.DataFrame(data=pet, index=date)
+   
+   return dfpr[date_start_obs:date_end_obs] 
+
+def pet_clim_s2s(date_fcst):
+   date_pet_1 = datetime.strptime(date_fcst, '%Y%m%d') #+ relativedelta(days=1)
+   date_pet_2 = date_pet_1 + relativedelta(days=45)
+   date_s2s = pd.date_range(date_pet_1,date_pet_2)
+   
+   dts2s = pd.DataFrame(index=date_s2s)
+
+   a, b,c , d =  np.loadtxt('data/obs/pet_daily_inmet_obs_19730101_20200731_thiessen_reservatorio-9-oros-CE.asc', unpack=True)
+
+   date1 = datetime(1973,1,1)
+   date2 = datetime(2020,7,31)
+   date = pd.date_range(date1.strftime('%Y%m%d'),date2.strftime('%Y%m%d'))
+   date = date.to_pydatetime()
+
+   dfpet=pd.DataFrame(data=d, index=date)
+   petclim = dfpet['19910101':'20101231']
+   petclim = petclim.groupby([petclim.index.month, petclim.index.day]).mean()
+   petclim = petclim.loc[zip(dts2s.index.month, dts2s.index.day)]
+   petclimperiod = pd.DataFrame(data=petclim.values, index=date_s2s)
+
+   return petclimperiod
+
+
+def pet_clim_back(date_fcst):
+   date_pet_2 = datetime.strptime(date_fcst, '%Y%m%d') - relativedelta(days=1)
+   date_pet_1 = datetime.strptime(date_fcst, '%Y%m%d') - relativedelta(months=48)
+   date_s2s = pd.date_range(date_pet_1,date_pet_2)
+
+   dt = pd.DataFrame(index=date_s2s)
+
+   a, b,c , d =  np.loadtxt('data/obs/pet_daily_inmet_obs_19730101_20200731_thiessen_reservatorio-9-oros-CE.asc', unpack=True)
+
+   date1 = datetime(1973,1,1)
+   date2 = datetime(2020,7,31)
+   date = pd.date_range(date1.strftime('%Y%m%d'),date2.strftime('%Y%m%d'))
+   date = date.to_pydatetime()
+
+   dfpet=pd.DataFrame(data=d, index=date)
+   petclim = dfpet['19910101':'20101231']
+   petclim = petclim.groupby([petclim.index.month, petclim.index.day]).mean()
+   petclim = petclim.loc[zip(dt.index.month,dt.index.day)]
+   petclimback = pd.DataFrame(index=date_s2s, data=petclim.values)
+   
+   return petclimback
+
+
+def read_s2s(exp):
+    if exp == 'hind':
+        year = range(1997,2018)
+    else:
+        year =  ['2018']
+        for y in year:
+            f_ls = np.sort(glob('data/{0}/ascii/{1}/*ensemble*.txt'.format(exp, y)))
+            for fin in f_ls:
+                try:
+                    os.mkdir('data/{0}/qflow/{1}'.format(exp,y))
+                except OSError as error:
+                    print('pasta existe')
+
+
+                date = fin.split('/')[-1].split('_')[7]
+                pr_s2s = pd.read_csv(fin,header=None, names=['date','pr'],sep=' ',index_col=0)
+                #print(date)
+                #print(pr_s2s)
+                pet_s2s = pet_clim_s2s(date)
+                #print(pet)
+                
+                
+                pr_back = read_obs(date)
+               
+                pr_back.index.set_names(['date'],inplace=True)
+                pr_back.columns = ['pr']
+                #print(pr_back)
+                #input()
+                pet_back = pet_clim_back(date)
+                #print(pet_back)
+                
+                #concatenate 
+                pr=pd.concat([pr_back,pr_s2s],axis=0)
+                pet=pd.concat([pet_back,pet_s2s], axis=0)
+                
+                # Calculando vazao smap
+                param = smap_param_day['oros_dirceu']
+                qcal = pd.DataFrame(data=smapd(param, pr.values, pet.values), index=pet.index)
+                print(qcal.loc[date:])
+                qcal.to_csv('data/{1}/qflow/{2}/flow_daily_s2s_ecmwf_hind9817_{1}_{0}_46days_dirceu.txt'.format(date,exp,y), sep=' ')
+                
+                exit()
+  
+args = arguments()
+exp = args.exp
+read_s2s(exp)
+
+#pr_obs_back = read_obs('20010101').values
+
+#etp_obs_back = pet_clim_back('20010101').values
+
+
+
+
+#print(len(pet_clim_s2s('20200101')))
+#print(pet_clim_back('20200101'))
+
+exit() 
+    
+#    fin = 'data/{0}/{y}'.format()
+#    pd.read_csv('')
+#    pr_daily_s2s_ecmwf_hind9817_hind_ensemble_19980104_thiessen_46days.txt
+
+
+exit()
 
 obs_dir = os.environ["OBS_DIR"]
 args = arguments()
-
+'''
 # Configuracoes iniciais
 for basin in smap_param_mon:
     cod_basin = int(basin.split("-")[0])
@@ -76,32 +200,4 @@ for basin in smap_param_mon:
     # Calculando vazao smap
     param = smap_param_mon["{0}-{1}".format(cod_basin, name_basin)]
     qcal = smapm(param, pr, pet)
-
-    # Salvando vazao smap
-    path_runoff = "{0}/runoff".format(path_dados)
-    if not os.path.exists(path_runoff):
-        os.makedirs(path_runoff)
-    name_f_out = "{0}/vazao_smap_{1}_{2}_{3}.asc".format(path_runoff, name_basin, date_serie_i_basin[:6], date_serie_f_basin[:6])
-    f_out = open(name_f_out, 'w')
-    for index, date in enumerate(list_dates_f):
-        f_out.write("{0} {1} {2:.3f}\n".format(date.year, date.month, qcal[index]))
-    f_out.close()
-    print "done      -->", name_f_out
-    # Plotando resposta
-    #~ plt.plot_date(list_dates_f, qcal, fmt='k-o', xdate=True, linewidth=4)
-    #~ try:
-        #~ plt.plot_date(list_dates_q_teste, q_teste, fmt='r-x', xdate=True, linewidth=2)
-        #~ plt.legend(['SMAP', 'Referencia'])
-        #~ plt.ylabel('Q (m3/s)', fontsize=15)
-        #~ plt.title('Vazao Mensal SMAP {0} - {1} a {2}'.format(name_basin.upper(), date_serie_i_basin[:6], date_serie_f_basin[:6]), fontsize=20)
-    #~ except:
-        #~ plt.ylabel('Q (m3/s)', fontsize=15)
-        #~ plt.title('Vazao Mensal SMAP {0} - {1} a {2}'.format(name_basin.upper(), date_serie_i_basin[:6], date_serie_f_basin[:6]), fontsize=20)
-
-    #~ try:
-        #~ name_fig = "/home/funceme/smap/dados/figuras/vazao_smap_{0}_{1}_{2}.png".format(name_basin, date_serie_i_basin[:6], date_serie_f_basin[:6])
-        #~ plt.savefig(name_fig)
-        #~ print "done      -->", name_fig
-    #~ except:
-        #~ print "fail      -->", name_fig
-    #~ plt.show ()
+'''

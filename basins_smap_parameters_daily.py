@@ -27,8 +27,8 @@ Usage:
 # Parametros TCC Walter Xavier
 
 smap_param_day = {
-'oros_walter':     [ 292.61,   3.94,   0.,  5.71,  71.66, 0., 0.,  0.,  14926.] #,
-#'oros_vinicius' : [ ] # 
+'oros_walter':     [ 292.61,   3.94,   0.,  5.71,  71.66, 0., 0.,  0.,  25000.] ,
+'oros_dirceu' : [266.3, 6.00, 84.21, 2.69, 92.68, 24.5, 0, 72.59, 25000. ] # 
  }
 
 
