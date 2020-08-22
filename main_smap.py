@@ -105,56 +105,42 @@ def pet_clim_back(date_fcst):
 
 def read_s2s(exp):
     if exp == 'hind':
-        year = range(1997,2018)
+        year = range(1998,2018)
     else:
         year =  ['2018']
-        for y in year:
-            f_ls = np.sort(glob('data/{0}/ascii/{1}/*ensemble*.txt'.format(exp, y)))
-            for fin in f_ls:
-                try:
-                    os.mkdir('data/{0}/qflow/{1}'.format(exp,y))
-                except OSError as error:
-                    print('pasta existe')
+    for y in year:
+        f_ls = np.sort(glob('data/{0}/ascii/{1}/*ensemble*.txt'.format(exp, y)))
+        for fin in f_ls:
+            try:
+                os.mkdir('data/{0}/qflow/{1}'.format(exp,y))
+            except OSError as error:
+                print('pasta existe')
 
 
-                date = fin.split('/')[-1].split('_')[7]
-                pr_s2s = pd.read_csv(fin,header=None, names=['date','pr'],sep=' ',index_col=0)
-                #print(date)
-                #print(pr_s2s)
-                pet_s2s = pet_clim_s2s(date)
-                #print(pet)
+            date = fin.split('/')[-1].split('_')[7]
+            pr_s2s = pd.read_csv(fin,header=None, names=['date','pr'],sep=' ',index_col=0)
+            pet_s2s = pet_clim_s2s(date)
                 
+            pr_back = read_obs(date)
+              
+            pr_back.index.set_names(['date'],inplace=True)
+            pr_back.columns = ['pr']
+            pet_back = pet_clim_back(date)
+            #concatenate
+            pr=pd.concat([pr_back,pr_s2s],axis=0)
+            pet=pd.concat([pet_back,pet_s2s], axis=0)
                 
-                pr_back = read_obs(date)
-               
-                pr_back.index.set_names(['date'],inplace=True)
-                pr_back.columns = ['pr']
-                #print(pr_back)
-                #input()
-                pet_back = pet_clim_back(date)
-                #print(pet_back)
+            # Calculando vazao smap
+            param = smap_param_day['oros_dirceu']
+            qcal = pd.DataFrame(data=smapd(param, pr.values, pet.values), index=pet.index)
+                #print(qcal.loc[date:])
+            qcal.loc[date:].to_csv('data/{1}/qflow/{2}/flow_daily_s2s_ecmwf_hind9817_{1}_{0}_46days.txt'.format(date,exp,y), sep=' ', header=None)
                 
-                #concatenate 
-                pr=pd.concat([pr_back,pr_s2s],axis=0)
-                pet=pd.concat([pet_back,pet_s2s], axis=0)
-                
-                # Calculando vazao smap
-                param = smap_param_day['oros_dirceu']
-                qcal = pd.DataFrame(data=smapd(param, pr.values, pet.values), index=pet.index)
-                print(qcal.loc[date:])
-                qcal.to_csv('data/{1}/qflow/{2}/flow_daily_s2s_ecmwf_hind9817_{1}_{0}_46days_dirceu.txt'.format(date,exp,y), sep=' ')
-                
-                exit()
+                #exit()
   
 args = arguments()
 exp = args.exp
 read_s2s(exp)
-
-#pr_obs_back = read_obs('20010101').values
-
-#etp_obs_back = pet_clim_back('20010101').values
-
-
 
 
 #print(len(pet_clim_s2s('20200101')))
