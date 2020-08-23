@@ -17,6 +17,7 @@ from pfct.hidro.smapd import smapd
 from basins_smap_parameters_daily import smap_param_day
 from calendar import monthrange
 from glob import glob
+import os
 
 #f = smapd(parms, pr, pet)
 
@@ -27,16 +28,6 @@ def arguments():
     parser.add_argument("--method", type=str, help="ensemble or member")
     return parser.parse_args()
 
-'''
-# Parametros
-smap_param_mon = {
-'194-castanhao': [  931.  ,  3.979,  0.,  0.,  30.,  0.,  14926.  ], # Parametros calculados por Robson - Dados de vazao para calculo da vazao disponibilizados no Portal Hidro
-'88-pacoti'    : [ 1227.  ,  4.9  ,  0.,  0.,  30.,  0.,    873.92],
-'9-oros'       : [  601.  ,  3.92 ,  0.,  0.,  30.,  0.,   9568.09],
-'2-banabuiu'   : [  961.  ,  2.95 ,  0.,  0.,  30.,  0.,  14249.  ],
-'0-prg'        : [ 1999.98,  3.78 ,  0.,  0.,  30.,  0.,   4742.01]
- }
-'''
             
 def read_obs(date_fcst,):
    date_start_obs = datetime.strptime(date_fcst, '%Y%m%d') - relativedelta(months=48)  
@@ -158,12 +149,25 @@ def read_s2s(exp, method):
             
             
             qcal.loc[date:].to_csv('data/{1}/qflow/{2}/flow_daily_s2s_ecmwf_hind9817_{1}_{0}_{3}_46days.txt'.format(date,exp,y,method), sep=' ', header=None)                
+    #def fcst_metrics()
+   
+def remove_bias_flow():
+
+    #reading hind 9817
+    a = np.sort(glob('data/hind/qflow/1997/*ensemble*.txt'))
+    print(a)
+    date = a[0].split('/')[-1].split('_')[7]
+          
+    print(date)
+       #for y in range(1997,2018):
+            
   
 args = arguments()
 exp = args.exp
-method = args.method
-read_s2s(exp, method)
+#method = args.method
+#read_s2s(exp, method)
 
+remove_bias_flow()
 
 
 #print(len(pet_clim_s2s('20200101')))
