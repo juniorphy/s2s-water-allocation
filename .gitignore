@@ -1,3 +1,4 @@
 data.nc
 data/*/ECMWF/*
 reservatorio/*
+data/obs/pr_daily*
