@@ -146,7 +146,7 @@ def read_s2s(exp, method):
                 pet=pd.concat([pet_back,pet_s2s], axis=0)
                 #print(pr.iloc[-60:])
             # Calculando vazao smap
-                param = smap_param_day['oros_dirceu']
+                param = smap_param_day['iguatu_dirceu']
                 #if flag == 1:
                 data=smapd(param, pr.values, pet.values)
                 qcook.append(data)
@@ -163,11 +163,6 @@ args = arguments()
 exp = args.exp
 method = args.method
 read_s2s(exp, method)
-
-
-
-#print(len(pet_clim_s2s('20200101')))
-#print(pet_clim_back('20200101'))
 
 exit() 
     

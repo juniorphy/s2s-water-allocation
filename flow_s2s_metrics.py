@@ -5,22 +5,15 @@ import argparse
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-#from smapm import smapm
 from datetime import datetime
 #from f_pr_pet import main_pr, main_pet
 #from netCDF4 import Dataset
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-#from hidropy.utils.hidropy_utils import create_path, read_thiessen_obs, lsname
-#from hidropy.utils.write_flow import write_flow
-from pfct.hidro.smapd import smapd
-from basins_smap_parameters_daily import smap_param_day
 from calendar import monthrange
 from glob import glob
 import os
-
-#f = smapd(parms, pr, pet)
-
+from gamma_correction import gamma_correction as gc
 
 def arguments():
     parser = argparse.ArgumentParser()
@@ -93,124 +86,188 @@ def pet_clim_back(date_fcst):
    
    return petclimback
 
+def read_hind_and_obs(exp, date,date1,date2, year=None):
+    mf=date.month
+    df=date.day
+    mh1=date1.month
+    md1=date1.day
+    mh2=date2.month
+    md2=date2.day
+    if exp == 'fcst':
+        pr_h = []
+        pr_h_obs = []
+        pr_h_y = []     
+        prh_dct = {}   
+        for y in range(1998,2018):
+            if y == year:
+                continue
+           
+            datef = datetime(y,mf,df).strftime('%Y%m%d')
+            dateh1 = datetime(y,mh1,md1).strftime('%Y-%m-%d')
+            dateh2 = datetime(y,mh2,md2).strftime('%Y-%m-%d')
+            fin = glob('data/{0}/qflow/{1}/*{2}*ensemble*'.format('hind',y,datef))
+            pr_dummy = pd.read_csv(fin[0],header=None, sep=' ', index_col=0)
+            pr_h.append(pr_dummy[dateh1:dateh2].mean().values[0])
+        #prh_dct['{0:02d}{1:02d}'.format(mf,df)] = pr_h
+        #print(prh_dct)
+        #read obs
+            obs = pd.read_csv('vazao_posto_iguatu_36160000.csv', header=None,index_col=0) 
+            pr_h_obs.append(obs[dateh1:dateh2].mean().values[0])
+            #print(pr_h_obs, dateh1, dateh2)
+            #input()
+        
+        #reading hind year
+        if year != 2018:
+            datef = datetime(year,mf,df).strftime('%Y%m%d')
+            dateh1 = datetime(year,mh1,md1).strftime('%Y-%m-%d')
+            dateh2 = datetime(year,mh2,md2).strftime('%Y-%m-%d')
+            fin = glob('data/{0}/qflow/{1}/*{2}*ensemble*'.format('hind',year,datef))
+            #print('data/{0}/qflow/{1}/*{2}*ensemble*'.format('hind',year,datef))
+            #print(fin)
+            pr  = pd.read_csv(fin[0],header=None, sep=' ', index_col=0)
+            pr_h_y = pr[dateh1:dateh2].mean().values[0]
+    pr_h = np.array(pr_h)
+    pr_h_obs = np.array(pr_h_obs)
 
-def read_s2s(exp, method):
-    if exp == 'hind':
-        year = range(1998,2018)
-    else:
-        year =  ['2018']
-    for y in year:
-        f_ls = np.sort(glob('data/{0}/ascii/{1}/*{2}*.txt'.format(exp, y, method)))
-        for fin in f_ls:
-            try:
-                os.mkdir('data/{0}/qflow/{1}'.format(exp,y))
-            except OSError as error:
-                pass
+    if year == 2018:
+        return pr_h, pr_h_obs
+    else:   
+        return pr_h ,pr_h_obs, pr_h_y
 
-            qcook = [ ]
-            date = fin.split('/')[-1].split('_')[7]
-            print(exp, method, y, date,fin)
-            if method == 'member':
-                flag = 1
-                if exp == 'hind':
-                    ic = 11
-                if exp == 'fcst':
-                    ic = 51
-            else:
-                flag = 0
-                ic = 1
-            for ii in range(ic):
-                print('processing member ', ii+1)
-                
-                pr_s2s = pd.read_csv(fin,header=None, sep=' ',index_col=0, usecols=[0,ii+1])
-                #exit()
-                pr_s2s.rename(columns= {ii+1:'pr'}, inplace=True)
-                pet_s2s = pet_clim_s2s(date)
-            
-                pr_back = read_obs(date)
-              
-                pr_back.index.set_names(['date'],inplace=True)
-                pr_back.columns = ['pr']
-                pet_back = pet_clim_back(date)
-            #concatenate
-                pr=pd.concat([pr_back,pr_s2s],axis=0)
-                pet=pd.concat([pet_back,pet_s2s], axis=0)
-                #print(pr.iloc[-60:])
-            # Calculando vazao smap
-                param = smap_param_day['oros_dirceu']
-                #if flag == 1:
-                data=smapd(param, pr.values, pet.values)
-                qcook.append(data)
-                #else:
-                #   data=smapd(param, pr.values, pet.values)
-                #   qcook.append(data)
-            data = np.array(qcook).T
-            qcal = pd.DataFrame(data=data, index=pet.index)
-            
-            
-            qcal.loc[date:].to_csv('data/{1}/qflow/{2}/flow_daily_s2s_ecmwf_hind9817_{1}_{0}_{3}_46days.txt'.format(date,exp,y,method), sep=' ', header=None)                
-    #def fcst_metrics()
+def get_obs(date1, date2):
+    mh1=date1.month
+    md1=date1.day
+    mh2=date2.month
+    md2=date2.day
+    dateh1 = date1.strftime('%Y-%m-%d')
+    dateh2 = date2.strftime('%Y-%m-%d')
+ 
+    obs = pd.read_csv('vazao_posto_iguatu_36160000.csv', header=None,index_col=0)
+    pr_f_obs = (obs[dateh1:dateh2].mean().values[0])
+    
+    return pr_f_obs
    
-def remove_bias_flow():
-
-    #reading hind 9817
-    a = np.sort(glob('data/hind/qflow/1997/*ensemble*.txt'))
-    print(a)
-    date = a[0].split('/')[-1].split('_')[7]
-          
-    print(date)
-       #for y in range(1997,2018):
+def remove_bias_flow(dates, horizon):
+    pr_f_cor_m = np.full((17,1), np.nan)
+    pr_h_cor_m = np.full((17,20), np.nan)
+    pr_h_obs_m = np.copy(pr_h_cor_m)
+    pr_f_obs_m = np.copy(pr_f_cor_m)   
+    for id, date in enumerate(dates):
+        date1,date2 = get_bounds(date, horizon)
+        pr_h_cor = []
+        pr_f_cor = []
+        date = datetime.strptime(date, '%Y%m%d')
+        mf=date.month
+        df=date.day
+        mh1=date1.month
+        md1=date1.day
+        mh2=date2.month
+        md2=date2.day  
+        print(date.strftime('%m%d'), horizon)
+        
+        ## correction of hindcast 
+        for iy, yy in enumerate(range(1998,2018)):
+            hind, obs, hind_y = read_hind_and_obs('fcst',date, date1,date2,yy)
             
+            cor = gc(obs,hind,hind_y)
+            pr_h_cor.append(cor)
+        #pr_h_cor = np.array(pr_h_cor)
+
+        # correcting forecasst   
+        # reading fcst data
+        exp = 'fcst'
+        fin = glob('data/{0}/qflow/{1}/*{2}*ensemble*'.format(exp,2018,'2018{0:02d}{1:02d}'.format(mf,df)))   
+        pr = pd.read_csv(fin[0],header=None, sep=' ', index_col=0)
+        pr_f = pr[date1.strftime('%Y-%m-%d'):date2.strftime('%Y-%m-%d')].mean().values[0]
+
+        #reading obs fcst file
+        pr_f_obs = get_obs(datetime(2018,mh1,md1),datetime(2018,mh2,md2))
+        pr_f_obs_m[id, :] = pr_f_obs
+        #reading hindcast and obs hind for correcting fcst
+        pr_h, pr_h_obs = read_hind_and_obs('fcst',date, date1,date2,2018) 
+
+        pr_f_cor.append(gc(pr_h_obs, pr_h, pr_f))
+
+        pr_f_cor_m[id,:] = pr_f_cor[0]
+        pr_h_cor_m[id,:] = np.array(pr_h_cor)
+        pr_h_obs_m[id,:] = pr_h_obs
+
+        
+    return np.squeeze(pr_f_cor_m), np.squeeze(pr_f_obs_m), pr_h_cor_m, pr_h_obs_m
+            
+            
+
+def get_dates(year):
+    dates_fcst = []
+    if year == 2018:
+        exp = 'fcst'
+    else:
+        exp = 'hind'
+    a = np.sort(glob('data/{1}/qflow/{0}/*ensemble*.txt'.format(year,exp)))
+    for ia in a:
+        date = ia.split('/')[-1].split('_')[6]
+        dates_fcst.append(date)
+    return dates_fcst 
+
+def get_bounds(date, horizon):
+    date = datetime.strptime(date, '%Y%m%d')
+    if horizon == '15days':
+        date1 = date 
+        date2 = date + relativedelta(days=14)
+    if horizon == '30days':
+        date1 = date 
+        date2 = date + relativedelta(days=29)
+    if horizon == '45days':
+        date1 = date 
+        date2 = date + relativedelta(days=44)
+    if horizon == '2ndfortnite':
+        date1 = date + relativedelta(days=15)
+        date2 = date + relativedelta(days=29)
+    if horizon == '3ndfortnite':
+        date1 = date + relativedelta(days=30)
+        date2 = date + relativedelta(days=44)
+
+    return date1, date2
+
+horizons = ['15days', '30days', '45days', '2ndfortnite', '3ndfortnite'] 
+
+dates = get_dates(2018)
+
+pr_f_cor_mat = np.zeros((17,5))
+pr_f_obs_mat = np.zeros((17,5))
+pr_h_cor_mat = np.zeros((17,20,5))
+pr_h_obs_mat = np.zeros((17,20,5))
+'''
+for ih,horizon in enumerate(horizons):
+    
+    pr_f_cor_mat[:,ih], pr_f_obs_mat[:,ih], pr_h_cor_mat[:,:,ih], pr_h_obs_mat[:,:,ih] = remove_bias_flow(dates, horizon)
+np.save('pr_f_cor_mat.npy',pr_f_cor_mat)
+np.save('pr_f_obs_mat.npy',pr_f_obs_mat) 
+np.save('pr_h_cor_mat.npy',pr_h_cor_mat)
+np.save('pr_h_obs_mat.npy',pr_h_obs_mat)
+'''
+
+pr_f_cor_mat = np.load('pr_f_cor_mat.npy')
+pr_h_cor_mat = np.load('pr_h_cor_mat.npy')
+pr_f_obs_mat = np.load('pr_f_obs_mat.npy')
+pr_h_obs_mat = np.load('pr_h_obs_mat.npy')
+
+print(pr_f_cor_mat)
+
+#idef flow_metrics(pr_f_cor_mat, pr_h_cor_mat, pr_f_obs_mat, pr_h_obs_mat, dates ):
+#    np.coerf_pearson
+         
+#    for horiz in horizons:
+#    date = datetime.strptime(date, '%Y%m%d')
+#    if horiz == '15days':
+#    date1 = date 
+#    date2 = date + relativedelta('14days')
+    
   
 args = arguments()
 exp = args.exp
 #method = args.method
 #read_s2s(exp, method)
 
-remove_bias_flow()
-
-
-#print(len(pet_clim_s2s('20200101')))
-#print(pet_clim_back('20200101'))
-
-exit() 
-    
-#    fin = 'data/{0}/{y}'.format()
-#    pd.read_csv('')
-#    pr_daily_s2s_ecmwf_hind9817_hind_ensemble_19980104_thiessen_46days.txt
-
-
 exit()
 
-obs_dir = os.environ["OBS_DIR"]
-args = arguments()
-'''
-# Configuracoes iniciais
-for basin in smap_param_mon:
-    cod_basin = int(basin.split("-")[0])
-    name_basin = basin.split("-")[1]
-    
-    date_serie_i_basin = '19740101' #data inicial da simulacao
-    date_serie_f_basin = args.date #data final da simulacao
-    list_dates_f = pd.date_range(start=date_serie_i_basin, end=date_serie_f_basin, freq='M')
-    path_dados = "{0}/smap_runoff/data".format(obs_dir)
-
-    try:
-        name_q_teste = "{0}/vazao_teste/qvaz_cogerh_{1}_{2}-{3}.txt".format(path_dados, dict_datas["{0}-{1}".format(cod_basin, name_basin)], cod_basin, name_basin)
-        q_teste = np.loadtxt(name_q_teste)
-        q_teste[np.where(q_teste == -999.)] = np.nan 
-        print "input     -->",name_q_teste
-        list_dates_q_teste = pd.date_range(start=dict_datas["{0}-{1}".format(cod_basin, name_basin)][0:6]+'01', end=dict_datas["{0}-{1}".format(cod_basin, name_basin)][7:]+'31', freq='M')
-    except:
-        pass
-        #print "fail      -->",name_q_teste
-
-
-    # Coletando informacoes de pr e pet
-    pr = main_pr(cod_basin, name_basin, date_serie_i_basin, date_serie_f_basin)
-    pet = main_pet(cod_basin, name_basin, date_serie_i_basin, date_serie_f_basin)
-
-    # Calculando vazao smap
-    param = smap_param_mon["{0}-{1}".format(cod_basin, name_basin)]
-    qcal = smapm(param, pr, pet)
-'''
