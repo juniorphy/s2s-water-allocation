@@ -25,7 +25,8 @@ def gamma_correction(data1, data2, data3):
     data2[data2<0.01] = 0.01
     if data3 < 0.001: 
         data3  = 0.001
-    
+    if data2.ndim == 2:
+        data2 = np.reshape(data2,(data2.shape[0]*data2.shape[1],1))
     #print(data1,data2)
 
     alpha_d1, loc_d1, beta_d1 = ss.gamma.fit(data1, floc=0.)
@@ -40,3 +41,10 @@ def gamma_correction(data1, data2, data3):
     d3_adjusted = np.where(d3_adjusted == np.inf, np.nan, d3_adjusted)
 
     return d3_adjusted
+
+##def empirical_cdf(data1, data2, data3);
+#    if data2.ndim == 2:
+#    data2 = np.reshape(data2,(data2.shape[0]*data2.shape[1],1))
+
+
+        
