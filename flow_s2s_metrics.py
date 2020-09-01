@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import matplotlib as mpl
 #mpl.use('Agg')
-from datetime import datetime
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from calendar import monthrange
 from glob import glob
@@ -255,25 +255,39 @@ for ih, hon in enumerate(horizons):
 ''' 
 
 correl_hind = np.full((17,4), np.nan)
+correl_global = np.zeros((4,))
 bias = np.full((17,4), np.nan)
 q_h_cor_mat[np.isnan(q_h_obs_mat)] = np.nan
 q_f_raw_mat[np.isnan(q_f_obs_mat)] = np.nan
 q_h_raw_mat[np.isnan(q_h_obs_mat)] = np.nan
 
+
 def flow_metrics(q_f_cor_mat, q_h_cor_mat, q_f_obs_mat, q_h_obs_mat, dates, horizons, q_h_raw_mat):
-   # for ih,hor in enumerate(horizons):
-    for id, date in enumerate(dates):
-       for ih,hor in enumerate(horizons):
-     
-           r = q_h_raw_mat[id,:,ih] ; r = r[~np.isnan(r)] #; print(r)
-           s = q_h_obs_mat[id,:,ih] ; s = s[~np.isnan(s)] #; print(s) ; 
-           #input()
-           
-           correl_hind[id, ih] = correl(r,s)[0]
-           bias[id, ih] = np.mean(r-s)
-           
-            
-    return correl_hind,bias
+    for ih,hor in enumerate(horizons):
+        p = []
+        q = []
+
+        for id, date in enumerate(dates):
+       #for ih,hor in enumerate(horizons):
+
+        
+            r = q_h_raw_mat[id,:,ih] ; r = r[~np.isnan(r)] #; print(r)
+            s = q_h_obs_mat[id,:,ih] ; s = s[~np.isnan(s)] #; print(s) 
+            correl_hind[id, ih] = correl(r,s)[0]
+            bias[id, ih] = np.mean(r-s)
+            for yy in range(len(s)):
+                p.append(r[yy])
+                q.append(s[yy])
+        p = np.array(p)
+       
+        q = np.array(q)
+
+        correl_global[ih] = correl(p,q)[0]
+        np.savetxt('ts_model_to_global_correl_{0}.txt'.format(hor), p)  
+        np.savetxt('ts_obs_to_global_correl_{0}.txt'.format(hor),q)  
+        print(correl(p,q)[0])
+    return correl_hind,bias,correl_global
+
 
 def plot_fcst_data(q_f_raw_mat, q_f_obs_mat, dates, horizons):
     dd = []
@@ -302,39 +316,53 @@ def plot_fcst_data(q_f_raw_mat, q_f_obs_mat, dates, horizons):
 
 #plot_fcst_data(q_f_raw_mat, q_f_obs_mat, dates,horizons)
     
-correl_hind, bias_hind = flow_metrics(q_f_cor_mat, q_h_cor_mat, q_f_obs_mat, q_h_obs_mat, dates, horizons, q_h_raw_mat)
+correl_hind, bias_hind, correl_global = flow_metrics(q_f_cor_mat, q_h_cor_mat, q_f_obs_mat, q_h_obs_mat, dates, horizons, q_h_raw_mat)
+
 dd = []
 date_dt = []
+correl_global = np.tile(correl_global,(17,1))
+#print(dates)
 for d in dates:
-    
+    dt=datetime.strptime(d,'%Y%m%d')
     date_dt.append(datetime.strptime(d,'%Y%m%d'))
-    dt = datetime.strptime(d,'%Y%m%d')
-    day=dt.day
-    mon=dt.month
-    
-    dd.append('{}{}'.format(day,mon))
-    
+    dt_str = dt.strftime('%d%b')
+    #day=datetime.strftime('%d')
+    #mon=d[-4:-2]
+    dd.append('{}'.format(dt_str))
+labs = ['15 days mean', '30 days mean', '45 days mean']   
 
-fig, ax = plt.subplots(dpi=120,figsize=(20,8.))
+fig, ax = plt.subplots(dpi=150,figsize=(25,8.))
 df = pd.DataFrame(data=correl_hind, index=date_dt,columns=horizons)
+dfc = pd.DataFrame(data=correl_global, index=date_dt)
 df.to_csv('correl_matrix_hindcast.txt', sep=' ')
 #dt =i pd.Datetimeindex(dates 
-df.iloc[2:,0].plot(color='k',marker='X',markersize=11.)
-df.iloc[2:,1].plot(color='k',marker='>',markersize=11.)
-df.iloc[2:,2].plot(color='k',marker='o',markersize=11.)
+df.iloc[2:,0].plot(linestyle='-',color='black',linewidth=3,label=labs[0])
+df.iloc[2:,1].plot(linestyle='--',color='black',linewidth=3,label=labs[1])
+df.iloc[2:,2].plot(linestyle='dotted',color='black',linewidth=3,label=labs[2])
+#dfc.iloc[2:,0].plot(linestyle='-',color='gray',linewidth=1,label='aa')
+#dfc.iloc[2:,1].plot(linestyle='--',color='gray',linewidth=1,label='a')
+#dfc.iloc[2:,2].plot(linestyle='dotted',color='gray',linewidth=1)
+#ax.text(0.5,0.5,'aaaaa',transform=ax.transAxes,fontsize=20)
+plt.axhline(correl_global[0,0],linestyle='-', color='gray', linewidth=1)#,label='correl global 15days')
+plt.axhline(correl_global[0,1],linestyle='--', color='gray', linewidth=1)#,label='correl global 15days')
+plt.axhline(correl_global[0,2],linestyle='dotted', color='gray', linewidth=1)
+#plt.axvline(date_dt[5],linestyle='-', color='gray', linewidth=1,label='kkkkk')
+
+# plt.plot(date_dt[2:], correl_global[2:,2],linestyle='-', color='gray',linewidth=1)
 #df.iloc[:,3].plot(color='k',marker='^',markersize=11.)
 #df.iloc[:,4].plot(color='k',marker='o',markersize=11.)
 #df.iloc[:,5].plot(color='k',marker='D',markersize=11.)
-ax.legend('center left', bbox_to_anchor=(1.0, 0.2 ))
+ax.legend(bbox_to_anchor=(1.0, 0.3 ),fontsize=19)
 #ax.legend('center left', bbox_to_anchor(1,0.5))
-ax.set_ylim([0.3,1.])
-ax.set_title('b) Prediction perfomance for 2018', fontsize=18)
-ax.set_xticks(dates[2:])
-ax.set_xticklabels(dd[2:],rotation=25,fontsize=15)
-ax.tick_params(axis="y", labelsize=15)
+ax.set_ylim([0.34,1.])
+ax.set_title('b) Flow prediction perfomance (1998-2017)', fontsize=25)
+ax.set_xticks(date_dt[2:])
+ax.set_xticklabels(dd[2:],rotation=0,fontsize=19)
+ax.tick_params(axis="y", labelsize=19)
 
-ax.set_xlabel('Initialization date',fontsize=16)
-ax.set_ylabel('Correlation')
+ax.set_xlabel('Initialization date',fontsize=22)
+ax.set_ylabel('Correlation',fontsize=22)
+#ax.grid(True, linestyle='--', color='gray')
 plt.savefig('correl_hind_9817.png')
 exit()
 

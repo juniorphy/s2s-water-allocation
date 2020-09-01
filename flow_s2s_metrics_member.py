@@ -17,6 +17,7 @@ from gamma_correction import gamma_correction as gc
 from scipy.stats import pearsonr as correl
 from statsmodels.distributions.empirical_distribution import ECDF
 from scipy.interpolate import interp1d
+np.set_printoptions(precision=3, suppress=True)
 
 def closest(fcst_target, clim_list):
     aux = []    
@@ -253,16 +254,12 @@ for ih in range(3):
     for id in range(17):
 
         for ii in range(51):
-
            
             obs_fcst = q_f_obs_mat[id,ih]
             hind = q_h_raw_mm[id, :,:,ih]
-            #hind = np.mean(q_h_raw_mm[id, :,:,ih], axis=1)
             hind = np.reshape(hind, (220,))
-            #print(hind)
-            #exit()
+
             fcst = np.squeeze(q_f_raw_mm[id,ii,ih])
-            #fcst = np.mean(fcst)
              
             obs = np.squeeze(q_h_obs_mat[id,:,ih])
             obs = obs[~np.isnan(obs)]
@@ -271,7 +268,7 @@ for ih in range(3):
             eocdf = ECDF(np.sort(obs))
 
             prob = np.interp(fcst,ehcdf.x,ehcdf.y)
-            #print(prob)
+          
             fcst_cor_np = np.interp(prob, eocdf.y, eocdf.x)
              
             ehcdfintp = interp1d(ehcdf.x, ehcdf.y,'linear', bounds_error=False)
@@ -284,72 +281,131 @@ for ih in range(3):
             q_f_cor_em[id, ii, ih] = fcst_cor_np
      #       print(fcst, fcst_cor_np, obs_fcst)
 #dealing with -inf
-#q_f_cor_em[~np.isfinite(q_f_cor_em)] = np.nan
 
-'''            
-             print('date', dates[id], 'membro ', ii+1)    
-            obs_fcst = q_f_obs_mat[id,ih]
+# bias removing cross validation
+print('q_h_raw_mm ', q_h_raw_mm.shape)
+#print('q_h_obs_mat', q_h_obs_mat.shape)
 
-            hind = q_h_raw_mm[id, :,:,ih]
-            hind = np.reshape(hind, (220,))
-            fcst = np.squeeze(q_f_raw_mm[id,:,ih])
-            obs = np.squeeze(q_h_obs_mat[id,:,ih])
-            ehcdf = ECDF(hind)
-            eocdf = ECDF(obs)
+for ih in range(3):
+    for id in range(17):
+        for iy in range(20):
 
-            id_fcst = closest(fcst[ii],ehcdf.x)
-        #print(id_fcst, fcst[ii], ehcdf.x[id_fcst])        
-            prob = ehcdf.y[id_fcst]
-        #print(prob)
-            id_obs = closest(prob, eocdf.y)
-        #print(eocdf.y[id_obs])
-            fcst_cor = eocdf.x[id_obs]
-        #print(fcst[ii], fcst_cor, obs_fcst)
-        #print()
-            q_f_cor_em[id, ii, ih] = fcst_cor    
-    #print(obs)
-    #input()
-'''
+            hind_d = np.copy(q_h_raw_mm)
+            obs_d = np.copy(q_h_obs_mat)
+            obs_d = obs_d[id,:,ih]
+            hind_d=hind_d[id,:,:,ih]
+
+            shind = hind_d[iy,:]
+            sobs = obs_d[iy]
+            hind_d = np.delete(hind_d, iy, axis=0)
+            obs_d  = np.delete(obs_d, iy,axis=0)
+            hind_d = np.reshape(hind_d, (19*11,))
+            obs_d = obs_d[~np.isnan(obs_d)]
+
+            ehcdf = ECDF(hind_d)
+            eocdf = ECDF(obs_d)
+            ehcdfintp = interp1d(ehcdf.x, ehcdf.y,'linear', bounds_error=False)
+            eocdfintp = interp1d(eocdf.y, eocdf.x,'linear')
+
+            for im in range(11):
+                h_y = shind[im]
+                prob =  ehcdfintp(fcst)
+                perc = eocdfintp(prob)
+                # prob = np.interp(h_y, ehcdf.x, ehcdf.y)
+                
+                # perc  = np.interp(prob, eocdf.y, eocdf.x)
+                # print(perc)
+                # if np.isfinite(perc):
+                #     if np.isnan(perc):
+                #         perc = np.nanmax(obs_d)
+                #     else:
+                #         perc = 0.0
+                # print(prob, perc)
+                                
+                q_h_cor_mm[id,iy,im,ih]=perc
+                np.set_printoptions(precision=3, suppress=True)
+                print('ano =', 1998+iy, 'member =', im+1)
+                print('prob =',prob,' hind_raw =',h_y, ' hind_cor = ', perc, 'obs = ',sobs)
+
+                #print()
+            
+
+
+exit()
+
+low = np.zeros((17,4))
+up = np.copy(low)
+
+q_f_cor_em[~np.isfinite(q_f_cor_em)] = 0.0
 
 
 
+for id in range(17):
+    for ih in range(4):
+        #print(np.squeeze(q_h_obs_mat[id,:,ih]))
+        pobs = np.squeeze(q_h_obs_mat[id,:,ih])
+        low[id, ih] = np.percentile(pobs[~np.isnan(pobs)], 33.33)
+        up[id, ih]  = np.percentile(pobs[~np.isnan(pobs)], 66.66)
+       
+labelh = ['15 days mean', '30 days mean', '45 days mean']
+panel = ['d' , 'e', 'f']
 dd = []
 date_dt = []
 for d in dates:
-    day=d[-2:]
-    mon=d[-4:-2]
-    dd.append('{}/{}'.format(mon,day))
+    dt=datetime.strptime(d,'%Y%m%d')
     date_dt.append(datetime.strptime(d,'%Y%m%d'))
+    dt_str = dt.strftime('%d%b')
+    #day=datetime.strftime('%d')
+    #mon=d[-4:-2]
+    dd.append('{}'.format(dt_str))
 
-plt.figure(dpi=100,figsize=(20,10))
-obs_fcst = q_f_obs_mat[:,2]	
-plt.plot(range(15), obs_fcst[2:], linestyle='-',marker='o', markersize=10, color='k', label='Obs Streamflow')
-#plt.plot(range(15), np.nanmean(q_f_cor_em[2:,:,1],axis=1), linestyle='--',marker='>', markersize=10, color='b', label='FCST MEAN')
+for ih,hor in enumerate(horizons[0:3]):
+    plt.figure(dpi=150,figsize=(25,8))
+    obs_fcst = q_f_obs_mat[:,ih]	
+    plt.plot(range(15), obs_fcst[2:], linestyle='-',marker='o',linewidth='2', markersize=8, color='k', label='Obs flow in 2018')
+    #plt.plot(range(15), np.nanmean(q_f_cor_em[2:,:,1],axis=1), linestyle='--',marker='>', markersize=10, color='b', label='FCST MEAN')
+    plt.plot(range(15),low[2:,ih],linestyle='--', linewidth = 2, color='gray', label='Climatological (1998-2017) upper and lower terciles' )
+    plt.plot(range(15),up[2:,ih],linestyle='--', linewidth = 2, color='gray') #, label='66th percentile' )
+    
+    bp=plt.boxplot(q_f_cor_em[2:,:,ih].T, positions=range(15),showfliers=True, widths=[0.3]*15)
 
-bp=plt.boxplot(q_f_cor_em[2:,:,2].T, positions=range(15),showfliers=True, widths=[0.3]*15)
+    plt.setp(bp[   'boxes'], linewidth=2)
+    plt.setp(bp[ 'medians'], linewidth=2)
+    plt.setp(bp[    'caps'], linewidth=2)
+    plt.setp(bp['whiskers'], linewidth=2)
 
-plt.setp(bp[   'boxes'], linewidth=2)
-plt.setp(bp[ 'medians'], linewidth=2)
-plt.setp(bp[    'caps'], linewidth=2)
-plt.setp(bp['whiskers'], linewidth=2)
+    plt.ylim(0,250)
+    plt.legend(bbox_to_anchor=(0.37, 1.0),fontsize=17,loc='upper right')
+    plt.title('{1}) Flow Prediction for 2018 ({0})'.format(labelh[ih], panel[ih]),fontsize=25)
+    plt.xticks(range(15),dd[2:],rotation=0, fontsize=19)
+    plt.tick_params(axis="y", labelsize=19)
 
-plt.ylim(0,400)
-plt.legend(bbox_to_anchor=(1.0, 0.8))
-plt.title('FCST BIAS REMOVED interp - ECMWF-SMAP vs Obs - 45days',fontsize=15)
-plt.xticks(range(15),dates[2:],rotation=25)
-#plt.xticklabels(dates,rotation=45)
-plt.grid(True,linestyle='--',color='c',linewidth=0.5)
-plt.xlabel('Initialization date')
+    #plt.xticklabels(dates,rotation=45)
+    plt.grid(True,linestyle='--',color='c',linewidth=0.5)
+    plt.xlabel('Initialization date', fontsize=22)
+    plt.ylabel('flow (m\u00b3/s)',fontsize=22)
+    plt.savefig('fcst_bias_removed_2018_{}.png'.format(hor))
+    plt.close()
+
+print(q_f_raw_mm[9,:,0])
+print(q_f_cor_em[9,:,0])
+plt.plot(range(51), q_f_cor_em[9,:,0],'-o',color='black',label='bias removed')
+plt.plot(range(51), q_f_raw_mm[9,:,0], '->',color='blue',label='raw')
+plt.legend()
+
+plt.xlabel('members')
 plt.show()
+
 exit()
+
 
 correl_hind = np.full((17,4), np.nan)
 bias = np.full((17,4), np.nan)
-q_f_cor_mm[np.isnan(q_f_obs_mat)] = np.nan
-q_h_cor_mm[np.isnan(q_h_obs_mat)] = np.nan
-q_h_raw_mm[np.isnan(q_h_obs_mat)] = np.nan
+#q_f_cor_mm[np.isnan(q_f_obs_mat)] = np.nan
+#q_h_cor_mm[np.isnan(q_h_obs_mat)] = np.nan
+#q_h_raw_mm[np.isnan(q_h_obs_mat)] = np.nan
 
- 
+exit()
 
 def flow_metrics(q_f_cor_mm, q_h_raw_mm, q_f_obs_mat, q_h_obs_mat, dates, horizons):
    # for ih,hor in enumerate(horizons):
