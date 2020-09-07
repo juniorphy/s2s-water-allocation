@@ -439,7 +439,7 @@ for ic, cat in enumerate(cats):
         p_bing = np.reshape(p_bing,(17*20,2))
 
         p_bing = p_bing[np.argsort(p_bing[:,0])]
-        prob = np.unique(p_bin[:,0])
+        prob = np.unique(p_bing[:,0])
         proba = prob[~np.isnan(prob)][::-1]
             
         hr = np.zeros((len(proba)+2,))
@@ -452,14 +452,15 @@ for ic, cat in enumerate(cats):
             f = p_bing[p_bing[:,0] >= proba[ip-1],:]
             a = np.sum(f[:,1] ==1) #hit
             b = np.sum(f[:,1] ==0) #false alarm
-            g = p_bin[p_bing[:,0] < proba[ip-1],:]
+            g = p_bing[p_bing[:,0] < proba[ip-1],:]
             c = np.sum(g[:,1] ==1) #
             d = np.sum(g[:,1] ==0) #
             hr[ip] = (a /(a+c))
             far[ip] =( b/(b+d))
-
-
-
+        rocarea = np.trapz(hr,far)
+        roc_area_global[ih, ic] = rocarea
+        
+        # for dates
         for id in range(17):
             p_bin = toroc[id,ih,:,ic,:]
             p_bin = p_bin[np.argsort(p_bin[:,0])]
@@ -491,6 +492,7 @@ for ic, cat in enumerate(cats):
             #plt.ylabel('Hit rate')
             rocarea = np.trapz(hr,far)
             roc_area[id, ih, ic] = rocarea
+
             #plt.title('ROC curve for date 18Jan - 15 days mean\n ROC AREA {0:2.2f} above 80th percentile '.format(rocarea))
             
 #np.save('roc_area_mat.npy',roc_area)
@@ -520,7 +522,7 @@ for d in dates:
     dd.append('{}'.format(dt_str))
 
 for ih,hor in enumerate(horizons[0:3]):
-    plt.figure(dpi=150,figsize=(25,8))
+    plt.figure(dpi=160,figsize=(25,8))
     obs_fcst = q_f_obs_mat[:,ih]	
     plt.plot(range(15), obs_fcst[2:], linestyle='-',marker='o',linewidth='2', markersize=8, color='k', label='Obs flow in 2018')
     #plt.plot(range(15), np.nanmean(q_f_cor_em[2:,:,1],axis=1), linestyle='--',marker='>', markersize=10, color='b', label='FCST MEAN')
@@ -535,26 +537,22 @@ for ih,hor in enumerate(horizons[0:3]):
     plt.setp(bp['whiskers'], linewidth=2)
 
     plt.ylim(0,250)
-    plt.legend(bbox_to_anchor=(0.37, 1.0),fontsize=17,loc='upper right')
-    plt.title('{1}) Flow Prediction for 2018 ({0})'.format(labelh[ih], panel[ih]),fontsize=25)
-    plt.xticks(range(15),dd[2:],rotation=0, fontsize=19)
-    plt.tick_params(axis="y", labelsize=19)
+    plt.legend(bbox_to_anchor=(0.38, 1.0),fontsize=17,loc='upper right')
+    plt.title('{1}) Flow Forecast for 2018 ({0})'.format(labelh[ih], panel[ih]),fontsize=30)
+    plt.xticks(range(15),dd[2:],rotation=0, fontsize=23)
+    plt.tick_params(axis="y", labelsize=23)
 
     #plt.xticklabels(dates,rotation=45)
     plt.grid(True,linestyle='--',color='c',linewidth=0.5)
-    plt.xlabel('Initialization date', fontsize=22)
-    plt.ylabel('flow (m\u00b3/s)',fontsize=22)
+    plt.xlabel('Initialization date', fontsize=25)
+    plt.ylabel('flow (m\u00b3/s)',fontsize=25)
     plt.savefig('fcst_bias_removed_2018_{}.png'.format(hor))
     plt.close()
 
-#print(q_f_raw_mm[9,:,0])
-#print(q_f_cor_em[9,:,0])
+
 plt.plot(range(51), q_f_cor_em[9,:,0],'-o',color='black',label='bias removed')
 plt.plot(range(51), q_f_raw_mm[9,:,0], '->',color='blue',label='raw')
 plt.legend()
-
-#plt.xlabel('members')
-#plt.show()
 
 #q_f_cor_mm[np.isnan(q_f_obs_mat)] = np.nan
 #q_h_cor_mm[np.isnan(q_h_obs_mat)] = np.nan
@@ -602,8 +600,6 @@ def plot_fcst_data(q_f_cor_mat, q_f_obs_mat, dates, horizons):
         #ax.legend()
         #plt.savefig('savefig.png')
 
-        
-
 #plot_fcst_data(q_f_cor_mat, q_f_obs_mat, dates,horizons)
     
 '''
@@ -636,41 +632,41 @@ ax.set_xlabel('Runs [month/day]')
 plt.savefig('correl_hind_9817.png')
 '''
 
-
 cats = ['below 50th', 'between 50-80th', 'above 80th']
 fign = ['50th', '50-80th', '80th']
 labs = ['15 days mean', '30 days mean', '45 days mean']      
 dd = []
 date_dt = []
 for d in dates:
-    day=d[-2:]
-    mon=d[-4:-2]
-    dd.append('{}/{}'.format(mon,day))
+    dt=datetime.strptime(d,'%Y%m%d')
     date_dt.append(datetime.strptime(d,'%Y%m%d'))
+    dt_str = dt.strftime('%d%b')
+    #day=datetime.strftime('%d')
+    #mon=d[-4:-2]
+    dd.append('{}'.format(dt_str))
 
 for ic, cat in enumerate(cats):
    
     fig, ax = plt.subplots(dpi=150,figsize=(25,8.))
     df = pd.DataFrame(data=roc_area[:,:,ic], index=date_dt,columns=horizons)
     #dfc = pd.DataFrame(data=correl_global, index=date_dt)
-    df.iloc[2:,0].plot(linestyle='-',color='black',linewidth=3,label=labs[0])
-    df.iloc[2:,1].plot(linestyle='--',color='black',linewidth=3,label=labs[1])
-    df.iloc[2:,2].plot(linestyle='dotted',color='black',linewidth=3,label=labs[2])
+    df.iloc[2:,0].plot(linestyle='-',color='black',linewidth=4,label=labs[0])
+    df.iloc[2:,1].plot(linestyle='--',color='black',linewidth=4,label=labs[1])
+    df.iloc[2:,2].plot(linestyle='dotted',color='black',linewidth=4,label=labs[2])
     #ax.text(0.5,0.5,'aaaaa',transform=ax.transAxes,fontsize=20)
-    #plt.axhline(correl_global[0,0],linestyle='-', color='gray', linewidth=1)#,label='correl global 15days')
-    #plt.axhline(correl_global[0,1],linestyle='--', color='gray', linewidth=1)#,label='correl global 15days')
-    #plt.axhline(correl_global[0,2],linestyle='dotted', color='gray', linewidth=1)
+    plt.axhline(roc_area_global[0,ic],linestyle='-', color='darkgray', linewidth=4)#,label='correl global 15days')
+    plt.axhline(roc_area_global[1,ic],linestyle='--', color='darkgray', linewidth=4)#,label='correl global 15days')
+    plt.axhline(roc_area_global[2,ic],linestyle='dotted', color='darkgray', linewidth=4)
     #plt.axvline(date_dt[5],linestyle='-', color='gray', linewidth=1,label='kkkkk')
-
     ax.legend(bbox_to_anchor=(1.0, 0.3 ),fontsize=19)
     #ax.legend('center left', bbox_to_anchor(1,0.5))
     ax.set_ylim([0.34,1.])
-    ax.set_title('c) ROC Area (1998-2017) for flow {0} percentile'.format(cat), fontsize=25)
+    ax.set_title('c) ROC Area (1998-2017) for flow {0} percentile'.format(cat), fontsize=30)
     ax.set_xticks(date_dt[2:])
-    ax.set_xticklabels(dd[2:],rotation=0,fontsize=19)
-    ax.tick_params(axis="y", labelsize=19)
+    ax.set_xticklabels(dd[2:],rotation=0,fontsize=23)
+    ax.tick_params(axis="y", labelsize=23)
 
-    ax.set_xlabel('Initialization date',fontsize=22)
-    ax.set_ylabel('Roc Area',fontsize=22)
+    ax.set_xlabel('Initialization date',fontsize=25)
+    ax.set_ylabel('Roc Area',fontsize=25)
     #ax.grid(True, linestyle='--', color='gray')
-    plt.savefig('roc_are_hind_9817_{}.png'.format(fign[ic]))
+    plt.savefig('roc_area_hind_9817_{}.png'.format(fign[ic]))

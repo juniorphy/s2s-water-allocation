@@ -283,9 +283,9 @@ def flow_metrics(q_f_cor_mat, q_h_cor_mat, q_f_obs_mat, q_h_obs_mat, dates, hori
         q = np.array(q)
 
         correl_global[ih] = correl(p,q)[0]
-        np.savetxt('ts_model_to_global_correl_{0}.txt'.format(hor), p)  
-        np.savetxt('ts_obs_to_global_correl_{0}.txt'.format(hor),q)  
-        print(correl(p,q)[0])
+        #np.savetxt('ts_model_to_global_correl_{0}.txt'.format(hor), p)  
+        #np.savetxt('ts_obs_to_global_correl_{0}.txt'.format(hor),q)  
+        #print(correl(p,q)[0])
     return correl_hind,bias,correl_global
 
 
@@ -331,44 +331,51 @@ for d in dates:
     dd.append('{}'.format(dt_str))
 labs = ['15 days mean', '30 days mean', '45 days mean']   
 
-fig, ax = plt.subplots(dpi=150,figsize=(25,8.))
+fig, ax = plt.subplots(dpi=160,figsize=(25,8.))
 df = pd.DataFrame(data=correl_hind, index=date_dt,columns=horizons)
 dfc = pd.DataFrame(data=correl_global, index=date_dt)
-df.to_csv('correl_matrix_hindcast.txt', sep=' ')
-#dt =i pd.Datetimeindex(dates 
-df.iloc[2:,0].plot(linestyle='-',color='black',linewidth=3,label=labs[0])
-df.iloc[2:,1].plot(linestyle='--',color='black',linewidth=3,label=labs[1])
-df.iloc[2:,2].plot(linestyle='dotted',color='black',linewidth=3,label=labs[2])
+#df.to_csv('correl_matrix_hindcast.txt', sep=' ')
+df.iloc[2:,0].plot(linestyle='-',color='black',linewidth=4,label=labs[0])
+df.iloc[2:,1].plot(linestyle='--',color='black',linewidth=4,label=labs[1])
+df.iloc[2:,2].plot(linestyle='dotted',color='black',linewidth=4,label=labs[2])
+
 #dfc.iloc[2:,0].plot(linestyle='-',color='gray',linewidth=1,label='aa')
 #dfc.iloc[2:,1].plot(linestyle='--',color='gray',linewidth=1,label='a')
 #dfc.iloc[2:,2].plot(linestyle='dotted',color='gray',linewidth=1)
 #ax.text(0.5,0.5,'aaaaa',transform=ax.transAxes,fontsize=20)
-plt.axhline(correl_global[0,0],linestyle='-', color='gray', linewidth=3)#,label='correl global 15days')
-plt.axhline(correl_global[0,1],linestyle='--', color='gray', linewidth=3)#,label='correl global 15days')
-plt.axhline(correl_global[0,2],linestyle='dotted', color='gray', linewidth=3)
+plt.axhline(correl_global[0,0],linestyle='-', color='darkgray', linewidth=4)#,label='correl global 15days')
+plt.axhline(correl_global[0,1],linestyle='--', color='darkgray', linewidth=4)#,label='correl global 15days')
+plt.axhline(correl_global[0,2],linestyle='dotted', color='darkgray', linewidth=4)
+
 #plt.axvline(date_dt[5],linestyle='-', color='gray', linewidth=1,label='kkkkk')
+#df.iloc[2:,0].plot(linestyle='-',color='black',linewidth=4,label=labs[0])
+#df.iloc[2:,1].plot(linestyle='--',color='black',linewidth=4,label=labs[1])
+#df.iloc[2:,2].plot(linestyle='dotted',color='black',linewidth=4,label=labs[2])
 
 # plt.plot(date_dt[2:], correl_global[2:,2],linestyle='-', color='gray',linewidth=1)
 #df.iloc[:,3].plot(color='k',marker='^',markersize=11.)
 #df.iloc[:,4].plot(color='k',marker='o',markersize=11.)
 #df.iloc[:,5].plot(color='k',marker='D',markersize=11.)
-ax.legend(bbox_to_anchor=(1.0, 0.3 ),fontsize=19)
+ax.legend(bbox_to_anchor=(1.0, 0.3 ),fontsize=20)
 #ax.legend('center left', bbox_to_anchor(1,0.5))
 ax.set_ylim([0.34,1.])
-ax.set_title('b) Flow prediction perfomance (1998-2017)', fontsize=25)
+ax.set_title('b) Correlation between mean forecast and observed flow (1998-2017)', fontsize=30)
 ax.set_xticks(date_dt[2:])
-ax.set_xticklabels(dd[2:],rotation=0,fontsize=19)
-ax.tick_params(axis="y", labelsize=19)
+ax.set_xticklabels(dd[2:],rotation=0,fontsize=23)
+ax.tick_params(axis="y", labelsize=23)
 
-ax.set_xlabel('Initialization date',fontsize=22)
-ax.set_ylabel('Correlation',fontsize=22)
+ax.set_xlabel('Initialization date',fontsize=25)
+ax.set_ylabel('Correlation',fontsize=25)
 #ax.grid(True, linestyle='--', color='gray')
 plt.savefig('correl_hind_9817.png')
 exit()
 
+
+
+'''
 fig, ax = plt.subplots(dpi=120,figsize=(18.,5))
 df = pd.DataFrame(data=bias_hind, index=date_dt,columns=horizons)
-df.to_csv('bias_matrix_hindcast.txt', sep=' ')
+#df.to_csv('bias_matrix_hindcast.txt', sep=' ')
 #dt =i pd.Datetimeindex(dates,
 df.iloc[2:,0].plot(color='k',marker='X',markersize=11.)
 df.iloc[2:,1].plot(color='k',marker='>',markersize=11.)
@@ -391,4 +398,4 @@ exp = args.exp
 #read_s2s(exp, method)
 
 exit()
-
+'''
