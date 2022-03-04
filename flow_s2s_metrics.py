@@ -329,7 +329,7 @@ for d in dates:
     #day=datetime.strftime('%d')
     #mon=d[-4:-2]
     dd.append('{}'.format(dt_str))
-labs = ['15 days mean', '30 days mean', '45 days mean']   
+labs = ['15 day mean', '30 day mean', '45 day mean']   
 
 fig, ax = plt.subplots(dpi=160,figsize=(25,8.))
 df = pd.DataFrame(data=correl_hind, index=date_dt,columns=horizons)
@@ -359,7 +359,10 @@ plt.axhline(correl_global[0,2],linestyle='dotted', color='darkgray', linewidth=4
 ax.legend(bbox_to_anchor=(1.0, 0.3 ),fontsize=20)
 #ax.legend('center left', bbox_to_anchor(1,0.5))
 ax.set_ylim([0.34,1.])
-ax.set_title('b) Correlation between mean forecast and observed flow (1998-2017)', fontsize=30)
+ax.set_xlim([date_dt[0]+relativedelta(days=2),date_dt[-1]+relativedelta(days=2)])
+#ax.set_title('b) Correlation between mean forecast and observed flow (1998-2017)', fontsize=30)
+#ax.set_title('b)',loc='left', fontsize=32)
+ax.text(date_dt[0]-relativedelta(days=2), 1.015, 'b)', fontsize=32)
 ax.set_xticks(date_dt[2:])
 ax.set_xticklabels(dd[2:],rotation=0,fontsize=23)
 ax.tick_params(axis="y", labelsize=23)

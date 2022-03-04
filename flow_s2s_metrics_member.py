@@ -266,7 +266,9 @@ q_f_raw_mat = np.load('q_f_raw_mat.npy')
 #        df_q_h_raw = pd.DataFrame(data=q_h_obs_mat[8,:,2], index=range(1998,2018))
 #        df_q_h_raw.to_csv('data/obs/flow_obs_{}_{}_member.txt'.format('45days','0301'))
 
-# testando empirical cdf bias remove
+#-------------------------------------------------------------------------#
+
+# Empirical cdf bias remove
 
 q_f_cor_em = np.zeros((17,51,4))
 for ih in range(3):
@@ -509,8 +511,8 @@ for id in range(17):
         p33[id, ih] = np.percentile(pobs[~np.isnan(pobs)], 33.33)
         p66[id, ih]  = np.percentile(pobs[~np.isnan(pobs)], 66.66)
        
-labelh = ['15 days mean', '30 days mean', '45 days mean']
-panel = ['d' , 'e', 'f']
+labelh = ['15 day mean', '30 day mean', '45 day mean']
+panel = ['d' , 'c', 'f']
 dd = []
 date_dt = []
 for d in dates:
@@ -537,8 +539,11 @@ for ih,hor in enumerate(horizons[0:3]):
     plt.setp(bp['whiskers'], linewidth=2)
 
     plt.ylim(0,250)
+    plt.xlim(-1.0,15.)
     plt.legend(bbox_to_anchor=(0.38, 1.0),fontsize=17,loc='upper right')
-    plt.title('{1}) Flow Forecast for 2018 ({0})'.format(labelh[ih], panel[ih]),fontsize=30)
+    #plt.title('{1}) Flow Forecast for 2018 ({0})'.format(labelh[ih], panel[ih]),fontsize=30)
+    #plt.title('{1})'.format(labelh[ih], panel[ih]), loc='left',fontsize=32)
+    plt.text(-2, 255, '{0})'.format(panel[ih]), fontsize=32)
     plt.xticks(range(15),dd[2:],rotation=0, fontsize=23)
     plt.tick_params(axis="y", labelsize=23)
 
@@ -634,7 +639,7 @@ plt.savefig('correl_hind_9817.png')
 
 cats = ['below 50th', 'between 50-80th', 'above 80th']
 fign = ['50th', '50-80th', '80th']
-labs = ['15 days mean', '30 days mean', '45 days mean']      
+labs = ['15 day mean', '30 day mean', '45 day mean']      
 dd = []
 date_dt = []
 for d in dates:
